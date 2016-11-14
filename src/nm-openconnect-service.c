@@ -585,10 +585,15 @@ real_need_secrets (NMVpnServicePlugin *plugin,
 		*setting_name = NM_SETTING_VPN_SETTING_NAME;
 		return TRUE;
 	}
+
+	/*
+	Somehow code requires this eventhough comment about saiys it
+	should not. We are going to disable this for now.
 	if (!nm_setting_vpn_get_secret (s_vpn, NM_OPENCONNECT_KEY_GWCERT)) {
 		*setting_name = NM_SETTING_VPN_SETTING_NAME;
 		return TRUE;
 	}
+    */
 	return FALSE;
 }
 
