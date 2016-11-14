@@ -1,3 +1,9 @@
+network-manager-openconnect (1.2.3pre-1kolya1) yakkety; urgency=medium
+
+  * Make things work with pulse
+
+ -- Nikolay Martynov <mar.kolya@gmail.com>  Sun, 13 Nov 2016 20:09:23 -0500
+
 network-manager-openconnect (1.2.2-1) unstable; urgency=medium
 
   [ Aron Xu ]
