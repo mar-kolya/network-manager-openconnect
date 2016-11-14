@@ -391,7 +391,8 @@ nm_openconnect_start_openconnect_binary (NMOpenconnectPlugin *plugin,
 	GPtrArray *openconnect_argv;
 	GSource *openconnect_watch;
 	gint	stdin_fd;
-	const char *props_vpn_gw, *props_cookie, *props_cacert, *props_mtu, *props_gwcert, *props_proxy;
+	const char *props_vpn_gw, *props_cookie, *props_cacert, *props_mtu, *props_gwcert;
+	const char *props_proxy, *props_user_agent;
 	const char *protocol;
 
 	/* Find openconnect */
@@ -438,6 +439,7 @@ nm_openconnect_start_openconnect_binary (NMOpenconnectPlugin *plugin,
 	props_mtu = nm_setting_vpn_get_data_item (s_vpn, NM_OPENCONNECT_KEY_MTU);
 
 	props_proxy = nm_setting_vpn_get_data_item (s_vpn, NM_OPENCONNECT_KEY_PROXY);
+	props_user_agent = nm_setting_vpn_get_data_item (s_vpn, NM_OPENCONNECT_KEY_USER_AGENT);
 
 	openconnect_argv = g_ptr_array_new ();
 	g_ptr_array_add (openconnect_argv, (gpointer) (*openconnect_binary));
@@ -469,6 +471,11 @@ nm_openconnect_start_openconnect_binary (NMOpenconnectPlugin *plugin,
 	if (props_proxy && strlen(props_proxy)) {
 		g_ptr_array_add (openconnect_argv, (gpointer) "--proxy");
 		g_ptr_array_add (openconnect_argv, (gpointer) props_proxy);
+	}
+
+	if (props_user_agent && strlen(props_user_agent)) {
+		g_ptr_array_add (openconnect_argv, (gpointer) "--useragent");
+		g_ptr_array_add (openconnect_argv, (gpointer) props_user_agent);
 	}
 
 	g_ptr_array_add (openconnect_argv, (gpointer) "--syslog");
