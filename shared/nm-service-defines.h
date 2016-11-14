@@ -42,6 +42,7 @@
 #define NM_OPENCONNECT_KEY_PEM_PASSPHRASE_FSID "pem_passphrase_fsid"
 #define NM_OPENCONNECT_KEY_PROTOCOL "protocol"
 #define NM_OPENCONNECT_KEY_PROXY "proxy"
+#define NM_OPENCONNECT_KEY_USER_AGENT "user_agent"
 #define NM_OPENCONNECT_KEY_CSD_ENABLE "enable_csd_trojan"
 #define NM_OPENCONNECT_KEY_CSD_WRAPPER "csd_wrapper"
 #define NM_OPENCONNECT_KEY_TOKEN_MODE "stoken_source"

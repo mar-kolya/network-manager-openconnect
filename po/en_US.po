@@ -5058,6 +5058,10 @@ msgstr ""
 msgid "_Proxy:"
 msgstr ""
 
+#: ../properties/nm-openconnect-dialog.ui.h:5
+msgid "User _Agent:"
+msgstr ""
+
 #: ../properties/nm-openconnect-dialog.ui.h:6
 msgid "CA C_ertificate:"
 msgstr ""
