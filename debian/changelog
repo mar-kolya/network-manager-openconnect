@@ -1,3 +1,9 @@
+network-manager-openconnect (1.2.3pre-1kolya3) yakkety; urgency=medium
+
+  * Bump version
+
+ -- Nikolay Martynov <mar.kolya@gmail.com>  Tue, 15 Nov 2016 13:09:51 -0500
+
 network-manager-openconnect (1.2.3pre-1kolya2) yakkety; urgency=medium
 
   * Bump version
