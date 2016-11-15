@@ -179,6 +179,11 @@ import (NMVpnEditorPlugin *iface, const char *path, GError **error)
 	if (bval)
 		nm_setting_vpn_add_data_item (s_vpn, NM_OPENCONNECT_KEY_FIREFOX_ENABLE, "yes");
 
+	/* Firefox profile */
+	bval = g_key_file_get_boolean (keyfile, "openconnect", "FirefoxProfile", NULL);
+	if (bval)
+		nm_setting_vpn_add_data_item (s_vpn, NM_OPENCONNECT_KEY_FIREFOX_PROFILE, buf);
+
 	/* Cisco Secure Desktop */
 	bval = g_key_file_get_boolean (keyfile, "openconnect", "CSDEnable", NULL);
 	if (bval)
@@ -237,6 +242,7 @@ export (NMVpnEditorPlugin *iface,
 	const char *proxy = NULL;
 	const char *user_agent = NULL;
 	gboolean firefox_enable = FALSE;
+	const char *firefox_profile = NULL;
 	gboolean csd_enable = FALSE;
 	const char *csd_wrapper = NULL;
 	const char *usercert = NULL;
@@ -292,6 +298,10 @@ export (NMVpnEditorPlugin *iface,
 	if (value && !strcmp (value, "yes"))
 		firefox_enable = TRUE;
 
+	value = nm_setting_vpn_get_data_item (s_vpn, NM_OPENCONNECT_KEY_FIREFOX_PROFILE);
+	if (value && !strcmp (value, "yes"))
+		firefox_profile = value;
+
 	value = nm_setting_vpn_get_data_item (s_vpn, NM_OPENCONNECT_KEY_CSD_ENABLE);
 	if (value && !strcmp (value, "yes"))
 		csd_enable = TRUE;
@@ -338,6 +348,7 @@ export (NMVpnEditorPlugin *iface,
 		 "Proxy=%s\n"
 		 "UserAgent=%s\n"
 		 "FirefoxEnable=%s\n"
+		 "FirefoxProfile=%s\n"
 		 "CSDEnable=%s\n"
 		 "CSDWrapper=%s\n"
 		 "UserCertificate=%s\n"
@@ -353,6 +364,7 @@ export (NMVpnEditorPlugin *iface,
 		 /* Proxy */                 proxy ? proxy : "",
 		 /* User agent */            user_agent ? user_agent : "",
 		 /* Firefox auth */          firefox_enable ? "1" : "0",
+ 		 /* Firefox profile */       firefox_profile ? "1" : "0",
 		 /* Cisco Secure Desktop */  csd_enable ? "1" : "0",
 		 /* CSD Wrapper Script */    csd_wrapper ? csd_wrapper : "",
 		 /* User Certificate */      usercert ? usercert : "",
