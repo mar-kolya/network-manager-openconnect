@@ -1,0 +1,78 @@
+#!/usr/bin/env python
+import time
+import os
+import sys
+import re
+import time
+
+import gi
+gi.require_version('NM', '1.0')
+from gi.repository import NM
+
+from telnetlib import Telnet
+
+#FIXME Add all sorts od error handling
+
+class Mozrepl(object):
+    def __init__(self, ip="127.0.0.1", port=4242):
+        self.ip = ip
+        self.port = port
+        self.prompt = "repl>"
+
+    def __enter__(self):
+        self.t = Telnet(self.ip, self.port)
+        intro = self.t.read_until(self.prompt, 1)
+        if not intro.endswith(self.prompt):
+            self.prompt = re.search(r"repl\d+>", intro).group(0)
+            print("Waited due to nonstandard prompt:", self.prompt.decode("utf8"))
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.t.close()
+        del self.t
+
+connection_uuid = sys.argv[1]
+
+client = NM.Client.new(None)
+connection = client.get_connection_by_uuid(connection_uuid)
+vpn_settings = connection.get_setting_vpn()
+
+gateway = vpn_settings.props.data.get('gateway')
+
+port = 32123
+os.system("firefox --repl --repl %s" % port)
+time.sleep(1)
+script = ("""
+host = '%s';
+cookie_name = 'DSID';
+Services.cookies.remove(host, cookie_name, '/', false);
+(function(){
+  if (gBrowser.loadURI) {
+    gBrowser.loadURI('https://' + host);
+    return;
+  }
+  setTimeout(arguments.callee, 1000);
+})();
+(function(){
+    var cookies = Services.cookies.getCookiesFromHost(host);
+    while (cookies.hasMoreElements()) {
+      var cookie = cookies.getNext().QueryInterface(Ci.nsICookie2);
+      if (cookie.name == cookie_name) {
+        repl.print('cookie='+cookie.value);
+        window.close();
+        Cc['@hyperstruct.net/mozlab/mozrepl;1'].getService(Ci.nsIMozRepl).wrappedJSObject.stop();
+        repl.quit();
+      }
+    }
+    setTimeout(arguments.callee, 1000);
+})();""" % gateway).replace('\n', '')
+with Mozrepl(port=port) as mozrepl:
+    mozrepl.t.write(script.encode("utf8") + "\n")
+    response = mozrepl.t.read_all().decode("utf8")
+    match = re.match( r'.*cookie=([a-z0-9]+)', response, re.M|re.I)
+
+    sys.stdout.write("cookie\nDSID=%s\n" % match.group(1));
+    sys.stdout.write("gateway\n%s\n" % gateway);
+    sys.stdout.write("gwcert\n\n");
+    sys.stdout.write("\n\n");
+    sys.stdout.flush()

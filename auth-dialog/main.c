@@ -86,6 +86,8 @@
 
 #define AUTOSUBMIT_LIMIT 5
 
+#define NM_OPENCONNECT_AUTH_FIREFOX LIBEXECDIR"/nm-openconnect-auth-firefox"
+
 static const SecretSchema openconnect_secret_schema = {
 	"org.freedesktop.NetworkManager.Connection.Openconnect",
 	SECRET_SCHEMA_DONT_MATCH_NAME,
@@ -1708,6 +1710,7 @@ int main (int argc, char **argv)
 	GThread *init_thread;
 	gchar *key, *value;
 	int opt;
+	gchar *firefox;
 
 	while ((opt = getopt_long(argc, argv, "ru:n:s:i", long_options, NULL))) {
 		if (opt < 0)
@@ -1763,6 +1766,14 @@ int main (int argc, char **argv)
 		fprintf (stderr, "Failed to read '%s' (%s) data and secrets from stdin.\n",
 		         vpn_name, vpn_uuid);
 		return 1;
+	}
+
+	/* Run firefox authentication if requested
+	 * FIXME: I'm not proud of this code, but it seems to get the job
+	 * done. It's also linux specific */
+	firefox = g_hash_table_lookup(options, NM_OPENCONNECT_KEY_FIREFOX_ENABLE);
+	if (firefox && !strcmp(firefox, "yes")) {
+		execl(NM_OPENCONNECT_AUTH_FIREFOX, NM_OPENCONNECT_AUTH_FIREFOX, vpn_uuid, NULL);
 	}
 
 	gtk_init(0, NULL);
