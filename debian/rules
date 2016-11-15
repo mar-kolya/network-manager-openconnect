@@ -24,14 +24,14 @@ override_dh_auto_install:
 override_dh_makeshlibs:
 	dh_makeshlibs -X/usr/lib/$(DEB_HOST_MULTIARCH)/NetworkManager/
 
-override_dh_autoreconf:
-	for f in $(AUTORECONF_SOURCES); do \
-		[ -f $$f.debian-backup ] || mv $$f $$f.debian-backup; \
-	done
-	dh_autoreconf
+# override_dh_autoreconf:
+# 	for f in $(AUTORECONF_SOURCES); do \
+# 		[ -f $$f.debian-backup ] || mv $$f $$f.debian-backup; \
+# 	done
+# 	dh_autoreconf
 
-override_dh_autoreconf_clean:
-	dh_autoreconf_clean
-	for f in $(AUTORECONF_SOURCES); do \
-		[ ! -f $$f.debian-backup ] || mv $$f.debian-backup $$f; \
-	done
+# override_dh_autoreconf_clean:
+# 	dh_autoreconf_clean
+# 	for f in $(AUTORECONF_SOURCES); do \
+# 		[ ! -f $$f.debian-backup ] || mv $$f.debian-backup $$f; \
+# 	done
