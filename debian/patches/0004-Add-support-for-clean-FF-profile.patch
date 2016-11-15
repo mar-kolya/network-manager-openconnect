@@ -1,0 +1,373 @@
+From: Nikolay Martynov <mar.kolya@gmail.com>
+Date: Mon, 14 Nov 2016 23:23:48 -0500
+Subject: Add support for clean FF profile
+
+---
+ auth-dialog/nm-openconnect-auth-firefox   |  49 ++++++++++-----
+ po/en_US.po                               |   4 ++
+ properties/nm-openconnect-dialog.ui       | 100 ++++++++++++++++++++++++++++--
+ properties/nm-openconnect-editor-plugin.c |  12 ++++
+ properties/nm-openconnect-editor.c        |  15 +++++
+ shared/nm-service-defines.h               |   1 +
+ src/nm-openconnect-service.c              |   1 +
+ 7 files changed, 159 insertions(+), 23 deletions(-)
+
+diff --git a/auth-dialog/nm-openconnect-auth-firefox b/auth-dialog/nm-openconnect-auth-firefox
+index 21f3fb2..f3e5280 100755
+--- a/auth-dialog/nm-openconnect-auth-firefox
++++ b/auth-dialog/nm-openconnect-auth-firefox
+@@ -1,6 +1,6 @@
+ #!/usr/bin/env python
+ import time
+-import os
++import subprocess
+ import sys
+ import re
+ import time
+@@ -11,7 +11,7 @@ from gi.repository import NM
+ 
+ from telnetlib import Telnet
+ 
+-#FIXME Add all sorts od error handling
++#FIXME Add all sorts of error handling and do not rely in timing so much
+ 
+ class Mozrepl(object):
+     def __init__(self, ip="127.0.0.1", port=4242):
+@@ -38,23 +38,36 @@ connection = client.get_connection_by_uuid(connection_uuid)
+ vpn_settings = connection.get_setting_vpn()
+ 
+ gateway = vpn_settings.props.data.get('gateway')
++firefox_profile = vpn_settings.props.data.get('firefox_profile')
+ 
+ port = 32123
+-os.system("firefox --repl --repl %s" % port)
+-time.sleep(1)
+-script = ("""
+-host = '%s';
++
++firefox_args = ["firefox", "--repl", "--repl", "%s" % port]
++if firefox_profile:
++    firefox_args.extend(["-P", firefox_profile, "--no-remote"])
++    firefox_args.append('https://' + gateway)
++else:
++    firefox_args.append('about:blank')
++firefox_process = subprocess.Popen(firefox_args, stdout=subprocess.PIPE)
++
++time.sleep(1) # This is somewhat terrible, but we have outwait all FF internal processes before we ask it to work for us
++
++script = """
++gateway = '%s';
++firefox_profile = '%s';
+ cookie_name = 'DSID';
+-Services.cookies.remove(host, cookie_name, '/', false);
+-(function(){
+-  if (gBrowser.loadURI) {
+-    gBrowser.loadURI('https://' + host);
+-    return;
+-  }
+-  setTimeout(arguments.callee, 1000);
+-})();
++if (firefox_profile == '') {
++  Services.cookies.remove(gateway, cookie_name, '/', false);
++  (function(){
++    if (gBrowser.loadURI) {
++      gBrowser.loadURI('https://' + gateway);
++      return;
++    }
++    setTimeout(arguments.callee, 1000);
++  })();
++}
+ (function(){
+-    var cookies = Services.cookies.getCookiesFromHost(host);
++    var cookies = Services.cookies.getCookiesFromHost(gateway);
+     while (cookies.hasMoreElements()) {
+       var cookie = cookies.getNext().QueryInterface(Ci.nsICookie2);
+       if (cookie.name == cookie_name) {
+@@ -65,9 +78,9 @@ Services.cookies.remove(host, cookie_name, '/', false);
+       }
+     }
+     setTimeout(arguments.callee, 1000);
+-})();""" % gateway).replace('\n', '')
++})();""" % (gateway, firefox_profile)
+ with Mozrepl(port=port) as mozrepl:
+-    mozrepl.t.write(script.encode("utf8") + "\n")
++    mozrepl.t.write(script.replace('\n', '').encode("utf8") + "\n")
+     response = mozrepl.t.read_all().decode("utf8")
+     match = re.match( r'.*cookie=([a-z0-9]+)', response, re.M|re.I)
+ 
+@@ -76,3 +89,5 @@ with Mozrepl(port=port) as mozrepl:
+     sys.stdout.write("gwcert\n\n");
+     sys.stdout.write("\n\n");
+     sys.stdout.flush()
++
++#firefox_process.terminate()
+diff --git a/po/en_US.po b/po/en_US.po
+index c38cab4..c027384 100644
+--- a/po/en_US.po
++++ b/po/en_US.po
+@@ -5071,6 +5071,10 @@ msgid "Use _Firefox for authentication"
+ msgstr ""
+ 
+ #: ../properties/nm-openconnect-dialog.ui.h:7
++msgid "Firefox _profile"
++msgstr ""
++
++#: ../properties/nm-openconnect-dialog.ui.h:7
+ msgid "Allow Cisco Secure Desktop _trojan"
+ msgstr ""
+ 
+diff --git a/properties/nm-openconnect-dialog.ui b/properties/nm-openconnect-dialog.ui
+index 86389a6..f350af0 100644
+--- a/properties/nm-openconnect-dialog.ui
++++ b/properties/nm-openconnect-dialog.ui
+@@ -70,17 +70,17 @@
+                         <property name="left_padding">0</property>
+                         <property name="right_padding">0</property>
+                         <child>
+-			  <object class="GtkComboBox" id="protocol_combo">
++                          <object class="GtkComboBox" id="protocol_combo">
+                             <property name="visible">True</property>
+                             <property name="model">protocol_combo_list</property>
+                             <property name="active">0</property>
+                             <child>
+                               <object class="GtkCellRendererText" id="renderer"/>
+                               <attributes>
+-				<attribute name="text">0</attribute>
++                                <attribute name="text">0</attribute>
+                               </attributes>
+                             </child>
+-			  </object>
++                          </object>
+                         </child>
+                       </object>
+                       <packing>
+@@ -157,7 +157,7 @@
+                         <property name="x_options">fill</property>
+                       </packing>
+                     </child>
+-		    <child>
++                    <child>
+                       <object class="GtkAlignment" id="alignment18">
+                         <property name="visible">True</property>
+                         <property name="xalign">1</property>
+@@ -302,7 +302,7 @@
+                         <property name="y_options"/>
+                       </packing>
+                     </child>
+-		    <child>
++                    <child>
+                       <object class="GtkLabel" id="label30">
+                         <property name="visible">True</property>
+                         <property name="label" translatable="yes">User _Agent:</property>
+@@ -365,7 +365,7 @@
+                 <property name="fill">True</property>
+               </packing>
+             </child>
+-	    <child>
++            <child>
+               <object class="GtkCheckButton" id="firefox_button">
+                 <property name="border_width">2</property>
+                 <property name="visible">True</property>
+@@ -385,6 +385,94 @@
+               </packing>
+             </child>
+             <child>
++              <object class="GtkAlignment" id="alignment19">
++                <property name="visible">True</property>
++                <property name="xalign">0.5</property>
++                <property name="yalign">0.5</property>
++                <property name="xscale">1</property>
++                <property name="yscale">1</property>
++                <property name="top_padding">0</property>
++                <property name="bottom_padding">0</property>
++                <property name="left_padding">12</property>
++                <property name="right_padding">0</property>
++                <child>
++                  <object class="GtkTable" id="table5">
++                    <property name="visible">True</property>
++                    <property name="n_rows">1</property>
++                    <property name="n_columns">2</property>
++                    <property name="homogeneous">False</property>
++                    <property name="row_spacing">6</property>
++                    <property name="column_spacing">6</property>
++                    <child>
++                      <object class="GtkAlignment" id="alignment20">
++                        <property name="visible">True</property>
++                        <property name="xalign">1</property>
++                        <property name="yalign">0.5</property>
++                        <property name="xscale">0</property>
++                        <property name="yscale">1</property>
++                        <property name="top_padding">0</property>
++                        <property name="bottom_padding">0</property>
++                        <property name="left_padding">0</property>
++                        <property name="right_padding">0</property>
++                        <child>
++                          <object class="GtkEntry" id="firefox_profile_entry">
++                            <property name="visible">True</property>
++                            <property name="can_focus">True</property>
++                            <property name="editable">True</property>
++                            <property name="visibility">True</property>
++                            <property name="max_length">0</property>
++                            <property name="text" translatable="yes"/>
++                            <property name="has_frame">True</property>
++                            <property name="invisible_char">&#x2022;</property>
++                            <property name="activates_default">False</property>
++                          </object>
++                        </child>
++                      </object>
++                      <packing>
++                        <property name="left_attach">1</property>
++                        <property name="right_attach">2</property>
++                        <property name="top_attach">0</property>
++                        <property name="bottom_attach">1</property>
++                        <property name="y_options"/>
++                      </packing>
++                    </child>
++                    <child>
++                      <object class="GtkLabel" id="label31">
++                        <property name="visible">True</property>
++                        <property name="label" translatable="yes">Firefox _profile:</property>
++                        <property name="use_underline">True</property>
++                        <property name="use_markup">False</property>
++                        <property name="justify">GTK_JUSTIFY_LEFT</property>
++                        <property name="wrap">False</property>
++                        <property name="selectable">False</property>
++                        <property name="xalign">0</property>
++                        <property name="yalign">0.5</property>
++                        <property name="xpad">0</property>
++                        <property name="ypad">0</property>
++                        <property name="mnemonic_widget">gateway_entry</property>
++                        <property name="ellipsize">PANGO_ELLIPSIZE_NONE</property>
++                        <property name="width_chars">-1</property>
++                        <property name="single_line_mode">False</property>
++                        <property name="angle">0</property>
++                      </object>
++                      <packing>
++                        <property name="left_attach">0</property>
++                        <property name="right_attach">1</property>
++                        <property name="top_attach">0</property>
++                        <property name="bottom_attach">1</property>
++                        <property name="y_options"/>
++                      </packing>
++                    </child>
++                  </object>
++                </child>
++              </object>
++              <packing>
++                <property name="padding">0</property>
++                <property name="expand">True</property>
++                <property name="fill">True</property>
++              </packing>
++            </child>
++            <child>
+               <object class="GtkCheckButton" id="csd_button">
+                 <property name="border_width">2</property>
+                 <property name="visible">True</property>
+diff --git a/properties/nm-openconnect-editor-plugin.c b/properties/nm-openconnect-editor-plugin.c
+index d22b850..eef4498 100644
+--- a/properties/nm-openconnect-editor-plugin.c
++++ b/properties/nm-openconnect-editor-plugin.c
+@@ -178,6 +178,11 @@ import (NMVpnEditorPlugin *iface, const char *path, GError **error)
+ 	if (bval)
+ 		nm_setting_vpn_add_data_item (s_vpn, NM_OPENCONNECT_KEY_FIREFOX_ENABLE, "yes");
+ 
++	/* Firefox profile */
++	bval = g_key_file_get_boolean (keyfile, "openconnect", "FirefoxProfile", NULL);
++	if (bval)
++		nm_setting_vpn_add_data_item (s_vpn, NM_OPENCONNECT_KEY_FIREFOX_PROFILE, buf);
++
+ 	/* Cisco Secure Desktop */
+ 	bval = g_key_file_get_boolean (keyfile, "openconnect", "CSDEnable", NULL);
+ 	if (bval)
+@@ -231,6 +236,7 @@ export (NMVpnEditorPlugin *iface,
+ 	const char *proxy = NULL;
+ 	const char *user_agent = NULL;
+ 	gboolean firefox_enable = FALSE;
++	const char *firefox_profile = NULL;
+ 	gboolean csd_enable = FALSE;
+ 	const char *csd_wrapper = NULL;
+ 	const char *usercert = NULL;
+@@ -285,6 +291,10 @@ export (NMVpnEditorPlugin *iface,
+ 	if (value && !strcmp (value, "yes"))
+ 		firefox_enable = TRUE;
+ 
++	value = nm_setting_vpn_get_data_item (s_vpn, NM_OPENCONNECT_KEY_FIREFOX_PROFILE);
++	if (value && !strcmp (value, "yes"))
++		firefox_profile = value;
++
+ 	value = nm_setting_vpn_get_data_item (s_vpn, NM_OPENCONNECT_KEY_CSD_ENABLE);
+ 	if (value && !strcmp (value, "yes"))
+ 		csd_enable = TRUE;
+@@ -327,6 +337,7 @@ export (NMVpnEditorPlugin *iface,
+ 		 "Proxy=%s\n"
+ 		 "UserAgent=%s\n"
+ 		 "FirefoxEnable=%s\n"
++		 "FirefoxProfile=%s\n"
+ 		 "CSDEnable=%s\n"
+ 		 "CSDWrapper=%s\n"
+ 		 "UserCertificate=%s\n"
+@@ -341,6 +352,7 @@ export (NMVpnEditorPlugin *iface,
+ 		 /* Proxy */                 proxy ? proxy : "",
+ 		 /* User agent */            user_agent ? user_agent : "",
+ 		 /* Firefox auth */          firefox_enable ? "1" : "0",
++ 		 /* Firefox profile */       firefox_profile ? "1" : "0",
+ 		 /* Cisco Secure Desktop */  csd_enable ? "1" : "0",
+ 		 /* CSD Wrapper Script */    csd_wrapper ? csd_wrapper : "",
+ 		 /* User Certificate */      usercert,
+diff --git a/properties/nm-openconnect-editor.c b/properties/nm-openconnect-editor.c
+index ca8ffb1..becd6d2 100644
+--- a/properties/nm-openconnect-editor.c
++++ b/properties/nm-openconnect-editor.c
+@@ -346,6 +346,16 @@ init_editor_plugin (OpenconnectEditor *self, NMConnection *connection, GError **
+ 	}
+ 	g_signal_connect (G_OBJECT (widget), "toggled", G_CALLBACK (stuff_changed_cb), self);
+ 
++	widget = GTK_WIDGET (gtk_builder_get_object (priv->builder, "firefox_profile_entry"));
++	if (!widget)
++		return FALSE;
++	if (s_vpn) {
++		value = nm_setting_vpn_get_data_item (s_vpn, NM_OPENCONNECT_KEY_FIREFOX_PROFILE);
++		if (value)
++			gtk_entry_set_text (GTK_ENTRY (widget), value);
++	}
++	g_signal_connect (G_OBJECT (widget), "changed", G_CALLBACK (stuff_changed_cb), self);
++
+ 	widget = GTK_WIDGET (gtk_builder_get_object (priv->builder, "csd_button"));
+ 	if (!widget)
+ 		return FALSE;
+@@ -445,6 +455,11 @@ update_connection (NMVpnEditor *iface,
+ 	str = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON (widget))?"yes":"no";
+ 	nm_setting_vpn_add_data_item (s_vpn, NM_OPENCONNECT_KEY_FIREFOX_ENABLE, str);
+ 
++	widget = GTK_WIDGET (gtk_builder_get_object (priv->builder, "firefox_profile_entry"));
++	str = (char *) gtk_entry_get_text (GTK_ENTRY (widget));
++	if (str && strlen (str))
++		nm_setting_vpn_add_data_item (s_vpn, NM_OPENCONNECT_KEY_FIREFOX_PROFILE, str);
++
+ 	widget = GTK_WIDGET (gtk_builder_get_object (priv->builder, "csd_button"));
+ 	str = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON (widget))?"yes":"no";
+ 	nm_setting_vpn_add_data_item (s_vpn, NM_OPENCONNECT_KEY_CSD_ENABLE, str);
+diff --git a/shared/nm-service-defines.h b/shared/nm-service-defines.h
+index 9840b9b..461be82 100644
+--- a/shared/nm-service-defines.h
++++ b/shared/nm-service-defines.h
+@@ -44,6 +44,7 @@
+ #define NM_OPENCONNECT_KEY_PROXY "proxy"
+ #define NM_OPENCONNECT_KEY_USER_AGENT "user_agent"
+ #define NM_OPENCONNECT_KEY_FIREFOX_ENABLE "enable_firefox_auth"
++#define NM_OPENCONNECT_KEY_FIREFOX_PROFILE "firefox_profile"
+ #define NM_OPENCONNECT_KEY_CSD_ENABLE "enable_csd_trojan"
+ #define NM_OPENCONNECT_KEY_CSD_WRAPPER "csd_wrapper"
+ #define NM_OPENCONNECT_KEY_TOKEN_MODE "stoken_source"
+diff --git a/src/nm-openconnect-service.c b/src/nm-openconnect-service.c
+index 085eb0d..91aba7b 100644
+--- a/src/nm-openconnect-service.c
++++ b/src/nm-openconnect-service.c
+@@ -89,6 +89,7 @@ static const ValidProperty valid_properties[] = {
+ 	{ NM_OPENCONNECT_KEY_PROTOCOL,    G_TYPE_STRING, 0, 0 },
+ 	{ NM_OPENCONNECT_KEY_PROXY,       G_TYPE_STRING, 0, 0 },
+ 	{ NM_OPENCONNECT_KEY_FIREFOX_ENABLE, G_TYPE_BOOLEAN, 0, 0 },
++	{ NM_OPENCONNECT_KEY_FIREFOX_PROFILE, G_TYPE_STRING, 0, 0 },
+ 	{ NM_OPENCONNECT_KEY_CSD_ENABLE,  G_TYPE_BOOLEAN, 0, 0 },
+ 	{ NM_OPENCONNECT_KEY_CSD_WRAPPER, G_TYPE_STRING, 0, 0 },
+ 	{ NM_OPENCONNECT_KEY_USER_AGENT,  G_TYPE_STRING, 0, 0 },

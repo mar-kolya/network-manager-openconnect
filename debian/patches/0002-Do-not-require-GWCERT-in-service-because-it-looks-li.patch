@@ -1,0 +1,29 @@
+From: Nikolay Martynov <mar.kolya@gmail.com>
+Date: Sun, 13 Nov 2016 21:21:07 -0500
+Subject: Do not require GWCERT in service because it looks like it doesn't
+ need it
+
+---
+ src/nm-openconnect-service.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/src/nm-openconnect-service.c b/src/nm-openconnect-service.c
+index 44e778b..df2c621 100644
+--- a/src/nm-openconnect-service.c
++++ b/src/nm-openconnect-service.c
+@@ -585,10 +585,15 @@ real_need_secrets (NMVpnServicePlugin *plugin,
+ 		*setting_name = NM_SETTING_VPN_SETTING_NAME;
+ 		return TRUE;
+ 	}
++
++	/*
++	Somehow code requires this eventhough comment about saiys it
++	should not. We are going to disable this for now.
+ 	if (!nm_setting_vpn_get_secret (s_vpn, NM_OPENCONNECT_KEY_GWCERT)) {
+ 		*setting_name = NM_SETTING_VPN_SETTING_NAME;
+ 		return TRUE;
+ 	}
++    */
+ 	return FALSE;
+ }
+ 

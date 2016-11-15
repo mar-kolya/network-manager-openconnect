@@ -1,0 +1,5 @@
+0001-Allow-to-enter-useragent-to-pass-to-openconnect.patch
+0002-Do-not-require-GWCERT-in-service-because-it-looks-li.patch
+0003-Allow-authentication-with-firefox.patch
+0004-Add-support-for-clean-FF-profile.patch
+0005-Hack-add-po-Makefile.in.in-to-allow-build-to-run.patch

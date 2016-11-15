@@ -1,0 +1,245 @@
+From: Nikolay Martynov <mar.kolya@gmail.com>
+Date: Sun, 13 Nov 2016 20:59:43 -0500
+Subject: Allow to enter useragent to pass to openconnect
+
+---
+ po/en_US.po                               |  4 ++
+ properties/nm-openconnect-dialog.ui       | 62 ++++++++++++++++++++++++++++++-
+ properties/nm-openconnect-editor-plugin.c | 12 ++++++
+ properties/nm-openconnect-editor.c        | 15 ++++++++
+ shared/nm-service-defines.h               |  1 +
+ src/nm-openconnect-service.c              |  9 ++++-
+ 6 files changed, 101 insertions(+), 2 deletions(-)
+
+diff --git a/po/en_US.po b/po/en_US.po
+index 9e5be97..879d13d 100644
+--- a/po/en_US.po
++++ b/po/en_US.po
+@@ -5058,6 +5058,10 @@ msgstr ""
+ msgid "_Proxy:"
+ msgstr ""
+ 
++#: ../properties/nm-openconnect-dialog.ui.h:5
++msgid "User _Agent:"
++msgstr ""
++
+ #: ../properties/nm-openconnect-dialog.ui.h:6
+ msgid "CA C_ertificate:"
+ msgstr ""
+diff --git a/properties/nm-openconnect-dialog.ui b/properties/nm-openconnect-dialog.ui
+index 28283ba..fdce8ab 100644
+--- a/properties/nm-openconnect-dialog.ui
++++ b/properties/nm-openconnect-dialog.ui
+@@ -53,7 +53,7 @@
+                 <child>
+                   <object class="GtkTable" id="table2">
+                     <property name="visible">True</property>
+-                    <property name="n_rows">4</property>
++                    <property name="n_rows">5</property>
+                     <property name="n_columns">2</property>
+                     <property name="homogeneous">False</property>
+                     <property name="row_spacing">6</property>
+@@ -157,6 +157,39 @@
+                         <property name="x_options">fill</property>
+                       </packing>
+                     </child>
++		    <child>
++                      <object class="GtkAlignment" id="alignment18">
++                        <property name="visible">True</property>
++                        <property name="xalign">1</property>
++                        <property name="yalign">0.5</property>
++                        <property name="xscale">0</property>
++                        <property name="yscale">1</property>
++                        <property name="top_padding">0</property>
++                        <property name="bottom_padding">0</property>
++                        <property name="left_padding">0</property>
++                        <property name="right_padding">0</property>
++                        <child>
++                          <object class="GtkEntry" id="user_agent_entry">
++                            <property name="visible">True</property>
++                            <property name="can_focus">True</property>
++                            <property name="editable">True</property>
++                            <property name="visibility">True</property>
++                            <property name="max_length">0</property>
++                            <property name="text" translatable="yes"/>
++                            <property name="has_frame">True</property>
++                            <property name="invisible_char">&#x2022;</property>
++                            <property name="activates_default">False</property>
++                          </object>
++                        </child>
++                      </object>
++                      <packing>
++                        <property name="left_attach">1</property>
++                        <property name="right_attach">2</property>
++                        <property name="top_attach">4</property>
++                        <property name="bottom_attach">5</property>
++                        <property name="x_options">fill</property>
++                      </packing>
++                    </child>
+                     <child>
+                       <object class="GtkAlignment" id="alignment12">
+                         <property name="visible">True</property>
+@@ -269,6 +302,33 @@
+                         <property name="y_options"/>
+                       </packing>
+                     </child>
++		    <child>
++                      <object class="GtkLabel" id="label30">
++                        <property name="visible">True</property>
++                        <property name="label" translatable="yes">User _Agent:</property>
++                        <property name="use_underline">True</property>
++                        <property name="use_markup">False</property>
++                        <property name="justify">GTK_JUSTIFY_LEFT</property>
++                        <property name="wrap">False</property>
++                        <property name="selectable">False</property>
++                        <property name="xalign">0</property>
++                        <property name="yalign">0.5</property>
++                        <property name="xpad">0</property>
++                        <property name="ypad">0</property>
++                        <property name="mnemonic_widget">proxy_entry</property>
++                        <property name="ellipsize">PANGO_ELLIPSIZE_NONE</property>
++                        <property name="width_chars">-1</property>
++                        <property name="single_line_mode">False</property>
++                        <property name="angle">0</property>
++                      </object>
++                      <packing>
++                        <property name="left_attach">0</property>
++                        <property name="right_attach">1</property>
++                        <property name="top_attach">4</property>
++                        <property name="bottom_attach">5</property>
++                        <property name="y_options"/>
++                      </packing>
++                    </child>
+                     <child>
+                       <object class="GtkLabel" id="label27">
+                         <property name="visible">True</property>
+diff --git a/properties/nm-openconnect-editor-plugin.c b/properties/nm-openconnect-editor-plugin.c
+index f578000..5a373cd 100644
+--- a/properties/nm-openconnect-editor-plugin.c
++++ b/properties/nm-openconnect-editor-plugin.c
+@@ -168,6 +168,11 @@ import (NMVpnEditorPlugin *iface, const char *path, GError **error)
+ 	if (buf)
+ 		nm_setting_vpn_add_data_item (s_vpn, NM_OPENCONNECT_KEY_PROXY, buf);
+ 
++	/* User Agent String */
++	buf = g_key_file_get_string (keyfile, "openconnect", "UserAgent", NULL);
++	if (buf)
++		nm_setting_vpn_add_data_item (s_vpn, NM_OPENCONNECT_KEY_USER_AGENT, buf);
++
+ 	/* Cisco Secure Desktop */
+ 	bval = g_key_file_get_boolean (keyfile, "openconnect", "CSDEnable", NULL);
+ 	if (bval)
+@@ -219,6 +224,7 @@ export (NMVpnEditorPlugin *iface,
+ 	const char *cacert = NULL;
+ 	const char *protocol = NULL;
+ 	const char *proxy = NULL;
++	const char *user_agent = NULL;
+ 	gboolean csd_enable = FALSE;
+ 	const char *csd_wrapper = NULL;
+ 	const char *usercert = NULL;
+@@ -265,6 +271,10 @@ export (NMVpnEditorPlugin *iface,
+ 	if (value && strlen (value))
+ 		proxy = value;
+ 
++	value = nm_setting_vpn_get_data_item (s_vpn, NM_OPENCONNECT_KEY_USER_AGENT);
++	if (value && strlen (value))
++		user_agent = value;
++
+ 	value = nm_setting_vpn_get_data_item (s_vpn, NM_OPENCONNECT_KEY_CSD_ENABLE);
+ 	if (value && !strcmp (value, "yes"))
+ 		csd_enable = TRUE;
+@@ -305,6 +315,7 @@ export (NMVpnEditorPlugin *iface,
+ 		 "CACert=%s\n"
+ 		 "Protocol=%s\n"
+ 		 "Proxy=%s\n"
++		 "UserAgent=%s\n"
+ 		 "CSDEnable=%s\n"
+ 		 "CSDWrapper=%s\n"
+ 		 "UserCertificate=%s\n"
+@@ -317,6 +328,7 @@ export (NMVpnEditorPlugin *iface,
+ 		 /* CA Certificate */        cacert,
+ 		 /* Protocol */              protocol ? protocol : "anyconnect",
+ 		 /* Proxy */                 proxy ? proxy : "",
++		 /* User agent */            user_agent ? user_agent : "",
+ 		 /* Cisco Secure Desktop */  csd_enable ? "1" : "0",
+ 		 /* CSD Wrapper Script */    csd_wrapper ? csd_wrapper : "",
+ 		 /* User Certificate */      usercert,
+diff --git a/properties/nm-openconnect-editor.c b/properties/nm-openconnect-editor.c
+index f6cdb45..6bcfc1a 100644
+--- a/properties/nm-openconnect-editor.c
++++ b/properties/nm-openconnect-editor.c
+@@ -316,6 +316,16 @@ init_editor_plugin (OpenconnectEditor *self, NMConnection *connection, GError **
+ 	}
+ 	g_signal_connect (G_OBJECT (widget), "changed", G_CALLBACK (stuff_changed_cb), self);
+ 
++	widget = GTK_WIDGET (gtk_builder_get_object (priv->builder, "user_agent_entry"));
++	if (!widget)
++		return FALSE;
++	if (s_vpn) {
++		value = nm_setting_vpn_get_data_item (s_vpn, NM_OPENCONNECT_KEY_USER_AGENT);
++		if (value)
++			gtk_entry_set_text (GTK_ENTRY (widget), value);
++	}
++	g_signal_connect (G_OBJECT (widget), "changed", G_CALLBACK (stuff_changed_cb), self);
++
+ 	widget = GTK_WIDGET (gtk_builder_get_object (priv->builder, "fsid_button"));
+ 	if (!widget)
+ 		return FALSE;
+@@ -412,6 +422,11 @@ update_connection (NMVpnEditor *iface,
+ 	if (str && strlen (str))
+ 		nm_setting_vpn_add_data_item (s_vpn, NM_OPENCONNECT_KEY_PROXY, str);
+ 
++	widget = GTK_WIDGET (gtk_builder_get_object (priv->builder, "user_agent_entry"));
++	str = (char *) gtk_entry_get_text (GTK_ENTRY (widget));
++	if (str && strlen (str))
++		nm_setting_vpn_add_data_item (s_vpn, NM_OPENCONNECT_KEY_USER_AGENT, str);
++
+ 	widget = GTK_WIDGET (gtk_builder_get_object (priv->builder, "fsid_button"));
+ 	str = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON (widget))?"yes":"no";
+ 	nm_setting_vpn_add_data_item (s_vpn, NM_OPENCONNECT_KEY_PEM_PASSPHRASE_FSID, str);
+diff --git a/shared/nm-service-defines.h b/shared/nm-service-defines.h
+index 08fca3b..162ee3a 100644
+--- a/shared/nm-service-defines.h
++++ b/shared/nm-service-defines.h
+@@ -42,6 +42,7 @@
+ #define NM_OPENCONNECT_KEY_PEM_PASSPHRASE_FSID "pem_passphrase_fsid"
+ #define NM_OPENCONNECT_KEY_PROTOCOL "protocol"
+ #define NM_OPENCONNECT_KEY_PROXY "proxy"
++#define NM_OPENCONNECT_KEY_USER_AGENT "user_agent"
+ #define NM_OPENCONNECT_KEY_CSD_ENABLE "enable_csd_trojan"
+ #define NM_OPENCONNECT_KEY_CSD_WRAPPER "csd_wrapper"
+ #define NM_OPENCONNECT_KEY_TOKEN_MODE "stoken_source"
+diff --git a/src/nm-openconnect-service.c b/src/nm-openconnect-service.c
+index dc82a9f..44e778b 100644
+--- a/src/nm-openconnect-service.c
++++ b/src/nm-openconnect-service.c
+@@ -390,7 +390,8 @@ nm_openconnect_start_openconnect_binary (NMOpenconnectPlugin *plugin,
+ 	GPtrArray *openconnect_argv;
+ 	GSource *openconnect_watch;
+ 	gint	stdin_fd;
+-	const char *props_vpn_gw, *props_cookie, *props_cacert, *props_mtu, *props_gwcert, *props_proxy;
++	const char *props_vpn_gw, *props_cookie, *props_cacert, *props_mtu, *props_gwcert;
++	const char *props_proxy, *props_user_agent;
+ 	const char *protocol;
+ 
+ 	/* Find openconnect */
+@@ -437,6 +438,7 @@ nm_openconnect_start_openconnect_binary (NMOpenconnectPlugin *plugin,
+ 	props_mtu = nm_setting_vpn_get_data_item (s_vpn, NM_OPENCONNECT_KEY_MTU);
+ 
+ 	props_proxy = nm_setting_vpn_get_data_item (s_vpn, NM_OPENCONNECT_KEY_PROXY);
++	props_user_agent = nm_setting_vpn_get_data_item (s_vpn, NM_OPENCONNECT_KEY_USER_AGENT);
+ 
+ 	openconnect_argv = g_ptr_array_new ();
+ 	g_ptr_array_add (openconnect_argv, (gpointer) (*openconnect_binary));
+@@ -470,6 +472,11 @@ nm_openconnect_start_openconnect_binary (NMOpenconnectPlugin *plugin,
+ 		g_ptr_array_add (openconnect_argv, (gpointer) props_proxy);
+ 	}
+ 
++	if (props_user_agent && strlen(props_user_agent)) {
++		g_ptr_array_add (openconnect_argv, (gpointer) "--useragent");
++		g_ptr_array_add (openconnect_argv, (gpointer) props_user_agent);
++	}
++
+ 	g_ptr_array_add (openconnect_argv, (gpointer) "--syslog");
+ 	g_ptr_array_add (openconnect_argv, (gpointer) "--cookie-on-stdin");
+ 
