@@ -1,4 +1,5 @@
 libexec_PROGRAMS = nm-openconnect-auth-dialog
+libexec_SCRIPTS = nm-openconnect-auth-firefox
 
 nm_openconnect_auth_dialog_CPPFLAGS = \
 	$(LIBNM_CFLAGS) \
@@ -9,6 +10,7 @@ nm_openconnect_auth_dialog_CPPFLAGS = \
 	$(LIBSECRET_CFLAGS) \
 	-DICONDIR=\""$(datadir)/pixmaps"\" \
 	-DBINDIR=\""$(bindir)"\" \
+	-DLIBEXECDIR=\""$(libexecdir)"\" \
 	-DGNOMELOCALEDIR=\"$(datadir)/locale\" \
 	-I"$(top_srcdir)/shared" \
 	$(NULL)

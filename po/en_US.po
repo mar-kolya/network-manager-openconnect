@@ -5067,6 +5067,10 @@ msgid "CA C_ertificate:"
 msgstr ""
 
 #: ../properties/nm-openconnect-dialog.ui.h:7
+msgid "Use _Firefox for authentication"
+msgstr ""
+
+#: ../properties/nm-openconnect-dialog.ui.h:7
 msgid "Allow Cisco Secure Desktop _trojan"
 msgstr ""
 

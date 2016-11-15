@@ -88,8 +88,10 @@ static const ValidProperty valid_properties[] = {
 	{ NM_OPENCONNECT_KEY_PEM_PASSPHRASE_FSID, G_TYPE_BOOLEAN, 0, 0 },
 	{ NM_OPENCONNECT_KEY_PROTOCOL,    G_TYPE_STRING, 0, 0 },
 	{ NM_OPENCONNECT_KEY_PROXY,       G_TYPE_STRING, 0, 0 },
+	{ NM_OPENCONNECT_KEY_FIREFOX_ENABLE, G_TYPE_BOOLEAN, 0, 0 },
 	{ NM_OPENCONNECT_KEY_CSD_ENABLE,  G_TYPE_BOOLEAN, 0, 0 },
 	{ NM_OPENCONNECT_KEY_CSD_WRAPPER, G_TYPE_STRING, 0, 0 },
+	{ NM_OPENCONNECT_KEY_USER_AGENT,  G_TYPE_STRING, 0, 0 },
 	{ NM_OPENCONNECT_KEY_TOKEN_MODE,  G_TYPE_STRING, 0, 0 },
 	{ NM_OPENCONNECT_KEY_TOKEN_SECRET, G_TYPE_STRING, 0, 0 },
 	{ NULL,                           G_TYPE_NONE, 0, 0 }
@@ -731,12 +733,14 @@ int main (int argc, char *argv[])
 	g_option_context_parse (opt_ctx, &argc, &argv, NULL);
 	g_option_context_free (opt_ctx);
 
+	//gl.debug = TRUE;
 	if (getenv ("OPENCONNECT_DEBUG"))
 		gl.debug = TRUE;
 
 	gl.log_level = _nm_utils_ascii_str_to_int64 (getenv ("NM_VPN_LOG_LEVEL"),
 	                                             10, 0, LOG_DEBUG,
 	                                             gl.debug ? LOG_INFO : LOG_NOTICE);
+	//gl.log_level = LOG_DEBUG;
 
 	/* set logging options for helper script. */
 	setenv ("NM_VPN_LOG_LEVEL", nm_sprintf_buf (sbuf, "%d", gl.log_level), TRUE);
