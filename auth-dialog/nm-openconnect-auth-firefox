@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import time
-import os
+import subprocess
 import sys
 import re
 import time
@@ -11,7 +11,7 @@ from gi.repository import NM
 
 from telnetlib import Telnet
 
-#FIXME Add all sorts od error handling
+#FIXME Add all sorts of error handling and do not rely in timing so much
 
 class Mozrepl(object):
     def __init__(self, ip="127.0.0.1", port=4242):
@@ -38,23 +38,36 @@ connection = client.get_connection_by_uuid(connection_uuid)
 vpn_settings = connection.get_setting_vpn()
 
 gateway = vpn_settings.props.data.get('gateway')
+firefox_profile = vpn_settings.props.data.get('firefox_profile')
 
 port = 32123
-os.system("firefox --repl --repl %s" % port)
-time.sleep(1)
-script = ("""
-host = '%s';
+
+firefox_args = ["firefox", "--repl", "--repl", "%s" % port]
+if firefox_profile:
+    firefox_args.extend(["-P", firefox_profile, "--no-remote"])
+    firefox_args.append('https://' + gateway)
+else:
+    firefox_args.append('about:blank')
+firefox_process = subprocess.Popen(firefox_args, stdout=subprocess.PIPE)
+
+time.sleep(1) # This is somewhat terrible, but we have outwait all FF internal processes before we ask it to work for us
+
+script = """
+gateway = '%s';
+firefox_profile = '%s';
 cookie_name = 'DSID';
-Services.cookies.remove(host, cookie_name, '/', false);
+if (firefox_profile == '') {
+  Services.cookies.remove(gateway, cookie_name, '/', false);
+  (function(){
+    if (gBrowser.loadURI) {
+      gBrowser.loadURI('https://' + gateway);
+      return;
+    }
+    setTimeout(arguments.callee, 1000);
+  })();
+}
 (function(){
-  if (gBrowser.loadURI) {
-    gBrowser.loadURI('https://' + host);
-    return;
-  }
-  setTimeout(arguments.callee, 1000);
-})();
-(function(){
-    var cookies = Services.cookies.getCookiesFromHost(host);
+    var cookies = Services.cookies.getCookiesFromHost(gateway);
     while (cookies.hasMoreElements()) {
       var cookie = cookies.getNext().QueryInterface(Ci.nsICookie2);
       if (cookie.name == cookie_name) {
@@ -65,9 +78,9 @@ Services.cookies.remove(host, cookie_name, '/', false);
       }
     }
     setTimeout(arguments.callee, 1000);
-})();""" % gateway).replace('\n', '')
+})();""" % (gateway, firefox_profile)
 with Mozrepl(port=port) as mozrepl:
-    mozrepl.t.write(script.encode("utf8") + "\n")
+    mozrepl.t.write(script.replace('\n', '').encode("utf8") + "\n")
     response = mozrepl.t.read_all().decode("utf8")
     match = re.match( r'.*cookie=([a-z0-9]+)', response, re.M|re.I)
 
@@ -76,3 +89,5 @@ with Mozrepl(port=port) as mozrepl:
     sys.stdout.write("gwcert\n\n");
     sys.stdout.write("\n\n");
     sys.stdout.flush()
+
+#firefox_process.terminate()

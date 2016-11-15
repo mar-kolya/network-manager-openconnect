@@ -44,6 +44,7 @@
 #define NM_OPENCONNECT_KEY_PROXY "proxy"
 #define NM_OPENCONNECT_KEY_USER_AGENT "user_agent"
 #define NM_OPENCONNECT_KEY_FIREFOX_ENABLE "enable_firefox_auth"
+#define NM_OPENCONNECT_KEY_FIREFOX_PROFILE "firefox_profile"
 #define NM_OPENCONNECT_KEY_CSD_ENABLE "enable_csd_trojan"
 #define NM_OPENCONNECT_KEY_CSD_WRAPPER "csd_wrapper"
 #define NM_OPENCONNECT_KEY_TOKEN_MODE "stoken_source"
