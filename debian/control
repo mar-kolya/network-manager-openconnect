@@ -14,7 +14,7 @@ Build-Depends: debhelper (>= 9),
                libnm-glib-dev (>= 1.1.0),
                libnm-glib-vpn-dev (>= 1.1.0),
                libnm-util-dev (>= 1.1.0),
-               libopenconnect-dev (>= 3.19),
+               libopenconnect-dev (>= 7.07pre),
                libsecret-1-dev,
                libxml2-dev,
                network-manager-dev (>= 1.1.0)
@@ -27,7 +27,7 @@ Package: network-manager-openconnect
 Architecture: any
 Depends: adduser,
          network-manager (>= 1.2),
-         openconnect (>= 3),
+         openconnect (>= 7.07pre),
          ${misc:Depends},
          ${shlibs:Depends}
 Replaces: openconnect (<< 3)
