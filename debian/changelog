@@ -1,3 +1,9 @@
+network-manager-openconnect (1.2.3pre-1kolya5) yakkety; urgency=medium
+
+  * Add comment about mozrepl
+
+ -- Nikolay Martynov <mar.kolya@gmail.com>  Fri, 18 Nov 2016 22:06:55 -0500
+
 network-manager-openconnect (1.2.3pre-1kolya4) yakkety; urgency=medium
 
   * Bump version
