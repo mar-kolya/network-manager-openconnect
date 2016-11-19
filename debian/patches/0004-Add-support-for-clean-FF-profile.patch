@@ -102,14 +102,14 @@ index 21f3fb2..f3e5280 100755
 +
 +#firefox_process.terminate()
 diff --git a/po/en_US.po b/po/en_US.po
-index c38cab4..c027384 100644
+index c38cab4..dffd9e4 100644
 --- a/po/en_US.po
 +++ b/po/en_US.po
 @@ -5071,6 +5071,10 @@ msgid "Use _Firefox for authentication"
  msgstr ""
  
  #: ../properties/nm-openconnect-dialog.ui.h:7
-+msgid "Firefox _profile"
++msgid "Firefox _profile (must have mozrepl plugin installed):"
 +msgstr ""
 +
 +#: ../properties/nm-openconnect-dialog.ui.h:7
@@ -117,7 +117,7 @@ index c38cab4..c027384 100644
  msgstr ""
  
 diff --git a/properties/nm-openconnect-dialog.ui b/properties/nm-openconnect-dialog.ui
-index 86389a6..f350af0 100644
+index 86389a6..1fb12bd 100644
 --- a/properties/nm-openconnect-dialog.ui
 +++ b/properties/nm-openconnect-dialog.ui
 @@ -70,17 +70,17 @@
@@ -226,7 +226,7 @@ index 86389a6..f350af0 100644
 +                    <child>
 +                      <object class="GtkLabel" id="label31">
 +                        <property name="visible">True</property>
-+                        <property name="label" translatable="yes">Firefox _profile:</property>
++                        <property name="label" translatable="yes">Firefox _profile (must have mozrepl plugin installed):</property>
 +                        <property name="use_underline">True</property>
 +                        <property name="use_markup">False</property>
 +                        <property name="justify">GTK_JUSTIFY_LEFT</property>
