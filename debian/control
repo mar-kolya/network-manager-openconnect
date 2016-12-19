@@ -27,6 +27,8 @@ Package: network-manager-openconnect
 Architecture: any
 Depends: adduser,
          network-manager (>= 1.2),
+         python-gi,
+         gir1.2-networkmanager-1.0,
          openconnect (>= 7.07pre),
          ${misc:Depends},
          ${shlibs:Depends}
