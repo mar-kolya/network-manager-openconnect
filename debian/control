@@ -17,6 +17,7 @@ Build-Depends: debhelper (>= 9),
                libopenconnect-dev (>= 7.07pre),
                libsecret-1-dev,
                libxml2-dev,
+               libgcr-3-dev,
                network-manager-dev (>= 1.1.0)
 Standards-Version: 3.9.7
 Vcs-Git: https://anonscm.debian.org/cgit/collab-maint/network-manager-openconnect.git
@@ -30,6 +31,7 @@ Depends: adduser,
          python-gi,
          gir1.2-networkmanager-1.0,
          openconnect (>= 7.07pre),
+         libgcr-3-common,
          ${misc:Depends},
          ${shlibs:Depends}
 Replaces: openconnect (<< 3)
