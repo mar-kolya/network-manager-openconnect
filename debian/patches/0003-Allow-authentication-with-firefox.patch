@@ -1,0 +1,330 @@
+From: Nikolay Martynov <mar.kolya@gmail.com>
+Date: Mon, 14 Nov 2016 22:24:40 -0500
+Subject: Allow authentication with firefox
+
+---
+ auth-dialog/Makefile.am                   |  2 +
+ auth-dialog/main.c                        | 11 +++++
+ auth-dialog/nm-openconnect-auth-firefox   | 78 +++++++++++++++++++++++++++++++
+ po/en_US.po                               |  4 ++
+ properties/nm-openconnect-dialog.ui       | 19 ++++++++
+ properties/nm-openconnect-editor-plugin.c | 12 +++++
+ properties/nm-openconnect-editor.c        | 16 +++++++
+ shared/nm-service-defines.h               |  1 +
+ src/nm-openconnect-service.c              |  4 ++
+ 9 files changed, 147 insertions(+)
+ create mode 100755 auth-dialog/nm-openconnect-auth-firefox
+
+diff --git a/auth-dialog/Makefile.am b/auth-dialog/Makefile.am
+index 4bc4438..784e2be 100644
+--- a/auth-dialog/Makefile.am
++++ b/auth-dialog/Makefile.am
+@@ -1,4 +1,5 @@
+ libexec_PROGRAMS = nm-openconnect-auth-dialog
++libexec_SCRIPTS = nm-openconnect-auth-firefox
+ 
+ nm_openconnect_auth_dialog_CPPFLAGS = \
+ 	$(LIBNM_CFLAGS) \
+@@ -10,6 +11,7 @@ nm_openconnect_auth_dialog_CPPFLAGS = \
+ 	$(LIBSECRET_CFLAGS) \
+ 	-DICONDIR=\""$(datadir)/pixmaps"\" \
+ 	-DBINDIR=\""$(bindir)"\" \
++	-DLIBEXECDIR=\""$(libexecdir)"\" \
+ 	-DGNOMELOCALEDIR=\"$(datadir)/locale\" \
+ 	-I"$(top_srcdir)/shared" \
+ 	$(NULL)
+diff --git a/auth-dialog/main.c b/auth-dialog/main.c
+index 508c8f3..f202175 100644
+--- a/auth-dialog/main.c
++++ b/auth-dialog/main.c
+@@ -86,6 +86,8 @@
+ 
+ #define AUTOSUBMIT_LIMIT 5
+ 
++#define NM_OPENCONNECT_AUTH_FIREFOX LIBEXECDIR"/nm-openconnect-auth-firefox"
++
+ static const SecretSchema openconnect_secret_schema = {
+ 	"org.freedesktop.NetworkManager.Connection.Openconnect",
+ 	SECRET_SCHEMA_DONT_MATCH_NAME,
+@@ -1708,6 +1710,7 @@ int main (int argc, char **argv)
+ 	GThread *init_thread;
+ 	gchar *key, *value;
+ 	int opt;
++	gchar *firefox;
+ 
+ 	while ((opt = getopt_long(argc, argv, "ru:n:s:i", long_options, NULL))) {
+ 		if (opt < 0)
+@@ -1765,6 +1768,14 @@ int main (int argc, char **argv)
+ 		return 1;
+ 	}
+ 
++	/* Run firefox authentication if requested
++	 * FIXME: I'm not proud of this code, but it seems to get the job
++	 * done. It's also linux specific */
++	firefox = g_hash_table_lookup(options, NM_OPENCONNECT_KEY_FIREFOX_ENABLE);
++	if (firefox && !strcmp(firefox, "yes")) {
++		execl(NM_OPENCONNECT_AUTH_FIREFOX, NM_OPENCONNECT_AUTH_FIREFOX, vpn_uuid, NULL);
++	}
++
+ 	gtk_init(0, NULL);
+ 
+ 	_ui_data = init_ui_data(vpn_name, options, secrets, vpn_uuid);
+diff --git a/auth-dialog/nm-openconnect-auth-firefox b/auth-dialog/nm-openconnect-auth-firefox
+new file mode 100755
+index 0000000..21f3fb2
+--- /dev/null
++++ b/auth-dialog/nm-openconnect-auth-firefox
+@@ -0,0 +1,78 @@
++#!/usr/bin/env python
++import time
++import os
++import sys
++import re
++import time
++
++import gi
++gi.require_version('NM', '1.0')
++from gi.repository import NM
++
++from telnetlib import Telnet
++
++#FIXME Add all sorts od error handling
++
++class Mozrepl(object):
++    def __init__(self, ip="127.0.0.1", port=4242):
++        self.ip = ip
++        self.port = port
++        self.prompt = "repl>"
++
++    def __enter__(self):
++        self.t = Telnet(self.ip, self.port)
++        intro = self.t.read_until(self.prompt, 1)
++        if not intro.endswith(self.prompt):
++            self.prompt = re.search(r"repl\d+>", intro).group(0)
++            print("Waited due to nonstandard prompt:", self.prompt.decode("utf8"))
++        return self
++
++    def __exit__(self, type, value, traceback):
++        self.t.close()
++        del self.t
++
++connection_uuid = sys.argv[1]
++
++client = NM.Client.new(None)
++connection = client.get_connection_by_uuid(connection_uuid)
++vpn_settings = connection.get_setting_vpn()
++
++gateway = vpn_settings.props.data.get('gateway')
++
++port = 32123
++os.system("firefox --repl --repl %s" % port)
++time.sleep(1)
++script = ("""
++host = '%s';
++cookie_name = 'DSID';
++Services.cookies.remove(host, cookie_name, '/', false);
++(function(){
++  if (gBrowser.loadURI) {
++    gBrowser.loadURI('https://' + host);
++    return;
++  }
++  setTimeout(arguments.callee, 1000);
++})();
++(function(){
++    var cookies = Services.cookies.getCookiesFromHost(host);
++    while (cookies.hasMoreElements()) {
++      var cookie = cookies.getNext().QueryInterface(Ci.nsICookie2);
++      if (cookie.name == cookie_name) {
++        repl.print('cookie='+cookie.value);
++        window.close();
++        Cc['@hyperstruct.net/mozlab/mozrepl;1'].getService(Ci.nsIMozRepl).wrappedJSObject.stop();
++        repl.quit();
++      }
++    }
++    setTimeout(arguments.callee, 1000);
++})();""" % gateway).replace('\n', '')
++with Mozrepl(port=port) as mozrepl:
++    mozrepl.t.write(script.encode("utf8") + "\n")
++    response = mozrepl.t.read_all().decode("utf8")
++    match = re.match( r'.*cookie=([a-z0-9]+)', response, re.M|re.I)
++
++    sys.stdout.write("cookie\nDSID=%s\n" % match.group(1));
++    sys.stdout.write("gateway\n%s\n" % gateway);
++    sys.stdout.write("gwcert\n\n");
++    sys.stdout.write("\n\n");
++    sys.stdout.flush()
+diff --git a/po/en_US.po b/po/en_US.po
+index 879d13d..c38cab4 100644
+--- a/po/en_US.po
++++ b/po/en_US.po
+@@ -5067,6 +5067,10 @@ msgid "CA C_ertificate:"
+ msgstr ""
+ 
+ #: ../properties/nm-openconnect-dialog.ui.h:7
++msgid "Use _Firefox for authentication"
++msgstr ""
++
++#: ../properties/nm-openconnect-dialog.ui.h:7
+ msgid "Allow Cisco Secure Desktop _trojan"
+ msgstr ""
+ 
+diff --git a/properties/nm-openconnect-dialog.ui b/properties/nm-openconnect-dialog.ui
+index 40019dc..63c0595 100644
+--- a/properties/nm-openconnect-dialog.ui
++++ b/properties/nm-openconnect-dialog.ui
+@@ -365,6 +365,25 @@
+                 <property name="fill">True</property>
+               </packing>
+             </child>
++	    <child>
++              <object class="GtkCheckButton" id="firefox_button">
++                <property name="border_width">2</property>
++                <property name="visible">True</property>
++                <property name="can_focus">True</property>
++                <property name="label" translatable="yes">Use _Firefox for authentication</property>
++                <property name="use_underline">True</property>
++                <property name="relief">GTK_RELIEF_NORMAL</property>
++                <property name="focus_on_click">True</property>
++                <property name="active">False</property>
++                <property name="inconsistent">False</property>
++                <property name="draw_indicator">True</property>
++              </object>
++              <packing>
++                <property name="padding">0</property>
++                <property name="expand">False</property>
++                <property name="fill">False</property>
++              </packing>
++            </child>
+             <child>
+               <object class="GtkCheckButton" id="csd_button">
+                 <property name="border_width">2</property>
+diff --git a/properties/nm-openconnect-editor-plugin.c b/properties/nm-openconnect-editor-plugin.c
+index 749736c..073a03d 100644
+--- a/properties/nm-openconnect-editor-plugin.c
++++ b/properties/nm-openconnect-editor-plugin.c
+@@ -174,6 +174,11 @@ import (NMVpnEditorPlugin *iface, const char *path, GError **error)
+ 	if (buf)
+ 		nm_setting_vpn_add_data_item (s_vpn, NM_OPENCONNECT_KEY_USER_AGENT, buf);
+ 
++	/* Firefox authentication */
++	bval = g_key_file_get_boolean (keyfile, "openconnect", "FirefoxEnable", NULL);
++	if (bval)
++		nm_setting_vpn_add_data_item (s_vpn, NM_OPENCONNECT_KEY_FIREFOX_ENABLE, "yes");
++
+ 	/* Cisco Secure Desktop */
+ 	bval = g_key_file_get_boolean (keyfile, "openconnect", "CSDEnable", NULL);
+ 	if (bval)
+@@ -231,6 +236,7 @@ export (NMVpnEditorPlugin *iface,
+ 	const char *protocol = NULL;
+ 	const char *proxy = NULL;
+ 	const char *user_agent = NULL;
++	gboolean firefox_enable = FALSE;
+ 	gboolean csd_enable = FALSE;
+ 	const char *csd_wrapper = NULL;
+ 	const char *usercert = NULL;
+@@ -282,6 +288,10 @@ export (NMVpnEditorPlugin *iface,
+ 	if (value && strlen (value))
+ 		user_agent = value;
+ 
++	value = nm_setting_vpn_get_data_item (s_vpn, NM_OPENCONNECT_KEY_FIREFOX_ENABLE);
++	if (value && !strcmp (value, "yes"))
++		firefox_enable = TRUE;
++
+ 	value = nm_setting_vpn_get_data_item (s_vpn, NM_OPENCONNECT_KEY_CSD_ENABLE);
+ 	if (value && !strcmp (value, "yes"))
+ 		csd_enable = TRUE;
+@@ -327,6 +337,7 @@ export (NMVpnEditorPlugin *iface,
+ 		 "Protocol=%s\n"
+ 		 "Proxy=%s\n"
+ 		 "UserAgent=%s\n"
++		 "FirefoxEnable=%s\n"
+ 		 "CSDEnable=%s\n"
+ 		 "CSDWrapper=%s\n"
+ 		 "UserCertificate=%s\n"
+@@ -341,6 +352,7 @@ export (NMVpnEditorPlugin *iface,
+ 		 /* Protocol */              protocol ? protocol : "anyconnect",
+ 		 /* Proxy */                 proxy ? proxy : "",
+ 		 /* User agent */            user_agent ? user_agent : "",
++		 /* Firefox auth */          firefox_enable ? "1" : "0",
+ 		 /* Cisco Secure Desktop */  csd_enable ? "1" : "0",
+ 		 /* CSD Wrapper Script */    csd_wrapper ? csd_wrapper : "",
+ 		 /* User Certificate */      usercert ? usercert : "",
+diff --git a/properties/nm-openconnect-editor.c b/properties/nm-openconnect-editor.c
+index c12ad05..9d624d6 100644
+--- a/properties/nm-openconnect-editor.c
++++ b/properties/nm-openconnect-editor.c
+@@ -346,6 +346,16 @@ init_editor_plugin (OpenconnectEditor *self, NMConnection *connection, GError **
+ 	}
+ 	g_signal_connect (G_OBJECT (widget), "toggled", G_CALLBACK (stuff_changed_cb), self);
+ 
++	widget = GTK_WIDGET (gtk_builder_get_object (priv->builder, "firefox_button"));
++	if (!widget)
++		return FALSE;
++	if (s_vpn) {
++		value = nm_setting_vpn_get_data_item (s_vpn, NM_OPENCONNECT_KEY_FIREFOX_ENABLE);
++		if (value && !strcmp(value, "yes"))
++			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON (widget), TRUE);
++	}
++	g_signal_connect (G_OBJECT (widget), "toggled", G_CALLBACK (stuff_changed_cb), self);
++
+ 	widget = GTK_WIDGET (gtk_builder_get_object (priv->builder, "csd_button"));
+ 	if (!widget)
+ 		return FALSE;
+@@ -441,9 +451,15 @@ update_connection (NMVpnEditor *iface,
+ 	str = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON (widget))?"yes":"no";
+ 	nm_setting_vpn_add_data_item (s_vpn, NM_OPENCONNECT_KEY_PEM_PASSPHRASE_FSID, str);
+ 
++<<<<<<< 110906109be899d746b803fb7e0491ee33245763
+ 	widget = GTK_WIDGET (gtk_builder_get_object (priv->builder, "prevent_invalid_cert_button"));
+ 	str = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON (widget))?"yes":"no";
+ 	nm_setting_vpn_add_data_item (s_vpn, NM_OPENCONNECT_KEY_PREVENT_INVALID_CERT, str);
++=======
++	widget = GTK_WIDGET (gtk_builder_get_object (priv->builder, "firefox_button"));
++	str = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON (widget))?"yes":"no";
++	nm_setting_vpn_add_data_item (s_vpn, NM_OPENCONNECT_KEY_FIREFOX_ENABLE, str);
++>>>>>>> Allow authentication with firefox
+ 
+ 	widget = GTK_WIDGET (gtk_builder_get_object (priv->builder, "csd_button"));
+ 	str = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON (widget))?"yes":"no";
+diff --git a/shared/nm-service-defines.h b/shared/nm-service-defines.h
+index 4c50041..f74ecd1 100644
+--- a/shared/nm-service-defines.h
++++ b/shared/nm-service-defines.h
+@@ -44,6 +44,7 @@
+ #define NM_OPENCONNECT_KEY_PROTOCOL "protocol"
+ #define NM_OPENCONNECT_KEY_PROXY "proxy"
+ #define NM_OPENCONNECT_KEY_USER_AGENT "user_agent"
++#define NM_OPENCONNECT_KEY_FIREFOX_ENABLE "enable_firefox_auth"
+ #define NM_OPENCONNECT_KEY_CSD_ENABLE "enable_csd_trojan"
+ #define NM_OPENCONNECT_KEY_CSD_WRAPPER "csd_wrapper"
+ #define NM_OPENCONNECT_KEY_TOKEN_MODE "stoken_source"
+diff --git a/src/nm-openconnect-service.c b/src/nm-openconnect-service.c
+index d9845fa..b7c8abc 100644
+--- a/src/nm-openconnect-service.c
++++ b/src/nm-openconnect-service.c
+@@ -89,8 +89,10 @@ static const ValidProperty valid_properties[] = {
+ 	{ NM_OPENCONNECT_KEY_PREVENT_INVALID_CERT, G_TYPE_BOOLEAN, 0, 0 },
+ 	{ NM_OPENCONNECT_KEY_PROTOCOL,    G_TYPE_STRING, 0, 0 },
+ 	{ NM_OPENCONNECT_KEY_PROXY,       G_TYPE_STRING, 0, 0 },
++	{ NM_OPENCONNECT_KEY_FIREFOX_ENABLE, G_TYPE_BOOLEAN, 0, 0 },
+ 	{ NM_OPENCONNECT_KEY_CSD_ENABLE,  G_TYPE_BOOLEAN, 0, 0 },
+ 	{ NM_OPENCONNECT_KEY_CSD_WRAPPER, G_TYPE_STRING, 0, 0 },
++	{ NM_OPENCONNECT_KEY_USER_AGENT,  G_TYPE_STRING, 0, 0 },
+ 	{ NM_OPENCONNECT_KEY_TOKEN_MODE,  G_TYPE_STRING, 0, 0 },
+ 	{ NM_OPENCONNECT_KEY_TOKEN_SECRET, G_TYPE_STRING, 0, 0 },
+ 	{ NULL,                           G_TYPE_NONE, 0, 0 }
+@@ -732,12 +734,14 @@ int main (int argc, char *argv[])
+ 	g_option_context_parse (opt_ctx, &argc, &argv, NULL);
+ 	g_option_context_free (opt_ctx);
+ 
++	//gl.debug = TRUE;
+ 	if (getenv ("OPENCONNECT_DEBUG"))
+ 		gl.debug = TRUE;
+ 
+ 	gl.log_level = _nm_utils_ascii_str_to_int64 (getenv ("NM_VPN_LOG_LEVEL"),
+ 	                                             10, 0, LOG_DEBUG,
+ 	                                             gl.debug ? LOG_INFO : LOG_NOTICE);
++	//gl.log_level = LOG_DEBUG;
+ 
+ 	/* set logging options for helper script. */
+ 	setenv ("NM_VPN_LOG_LEVEL", nm_sprintf_buf (sbuf, "%d", gl.log_level), TRUE);
