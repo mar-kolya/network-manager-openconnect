@@ -3,3 +3,4 @@
 0003-Allow-authentication-with-firefox.patch
 0004-Add-support-for-clean-FF-profile.patch
 0005-Hack-add-po-Makefile.in.in-to-allow-build-to-run.patch
+0006-fix-conflict.patch

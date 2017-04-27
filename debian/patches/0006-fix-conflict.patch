@@ -1,0 +1,29 @@
+From: Nikolay Martynov <mar.kolya@gmail.com>
+Date: Wed, 26 Apr 2017 23:41:43 -0400
+Subject: fix conflict
+
+---
+ properties/nm-openconnect-editor.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/properties/nm-openconnect-editor.c b/properties/nm-openconnect-editor.c
+index 682f5e8..db9ea17 100644
+--- a/properties/nm-openconnect-editor.c
++++ b/properties/nm-openconnect-editor.c
+@@ -461,15 +461,13 @@ update_connection (NMVpnEditor *iface,
+ 	str = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON (widget))?"yes":"no";
+ 	nm_setting_vpn_add_data_item (s_vpn, NM_OPENCONNECT_KEY_PEM_PASSPHRASE_FSID, str);
+ 
+-<<<<<<< 110906109be899d746b803fb7e0491ee33245763
+ 	widget = GTK_WIDGET (gtk_builder_get_object (priv->builder, "prevent_invalid_cert_button"));
+ 	str = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON (widget))?"yes":"no";
+ 	nm_setting_vpn_add_data_item (s_vpn, NM_OPENCONNECT_KEY_PREVENT_INVALID_CERT, str);
+-=======
++
+ 	widget = GTK_WIDGET (gtk_builder_get_object (priv->builder, "firefox_button"));
+ 	str = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON (widget))?"yes":"no";
+ 	nm_setting_vpn_add_data_item (s_vpn, NM_OPENCONNECT_KEY_FIREFOX_ENABLE, str);
+->>>>>>> Allow authentication with firefox
+ 
+ 	widget = GTK_WIDGET (gtk_builder_get_object (priv->builder, "firefox_profile_entry"));
+ 	str = (char *) gtk_entry_get_text (GTK_ENTRY (widget));
